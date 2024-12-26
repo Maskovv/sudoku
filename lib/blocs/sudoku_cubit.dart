@@ -83,7 +83,7 @@ class SudokuCubit extends Cubit<SudokuState> {
     _timer?.cancel();
   }
 
-  void makeMove(int row, int col, int number) async {
+  void makeMove(int row, int col, int number) {
     if (state.initialCells[row][col]) return;
 
     final newGrid = List.generate(
@@ -93,27 +93,35 @@ class SudokuCubit extends Cubit<SudokuState> {
 
     newGrid[row][col] = number;
     bool isCorrect = state.solvedGrid[row][col] == number;
-    int newMistakes = isCorrect ? state.mistakes : state.mistakes + 1;
 
-    if (newMistakes >= 3) {
-      stopTimer();
-      try {
-        await _profileRepository.updateStats(isWin: false);
-        emit(state.copyWith(
-          currentGrid: newGrid,
-          mistakes: newMistakes,
-          isComplete: false,
-        ));
-        return;
-      } catch (e) {
-        print('Ошибка при сохранении результатов: $e');
-      }
-    }
+    emit(state.copyWith(
+      currentGrid: newGrid,
+      mistakes: isCorrect ? state.mistakes : state.mistakes + 1,
+    ));
 
+    // Проверка на победу
+    checkForWin(newGrid);
+  }
+
+  void startGame(int difficulty) {
+    final solvedGrid = _repository.generateSolvedGrid();
+    final puzzle = _repository.generatePuzzle(difficulty);
+
+    emit(SudokuState(
+      currentGrid: puzzle,
+      solvedGrid: solvedGrid,
+      initialCells: List.generate(9, (i) => List.generate(9, (j) => puzzle[i][j] != 0)),
+      timeElapsed: Duration.zero,
+    ));
+
+    startTimer();
+  }
+
+  void checkForWin(List<List<int>> grid) {
     bool isComplete = true;
     for (int i = 0; i < 9; i++) {
       for (int j = 0; j < 9; j++) {
-        if (newGrid[i][j] != state.solvedGrid[i][j]) {
+        if (grid[i][j] != state.solvedGrid[i][j]) {
           isComplete = false;
           break;
         }
@@ -122,43 +130,8 @@ class SudokuCubit extends Cubit<SudokuState> {
     }
 
     if (isComplete) {
-      stopTimer();
-      try {
-        await _profileRepository.updateStats(isWin: true);
-      } catch (e) {
-        print('Ошибка при сохранении результатов: $e');
-      }
-    }
-
-    emit(state.copyWith(
-      currentGrid: newGrid,
-      mistakes: newMistakes,
-      isComplete: isComplete,
-    ));
-  }
-
-  void startGame(int difficulty) {
-    try {
-      final solvedGrid = _repository.generateSolvedGrid();
-      final puzzle = _repository.generatePuzzle(difficulty);
-      
-      final initialCells = List.generate(
-        9,
-        (i) => List.generate(
-          9,
-          (j) => puzzle[i][j] != 0,
-        ),
-      );
-
-      emit(SudokuState(
-        currentGrid: puzzle,
-        solvedGrid: solvedGrid,
-        initialCells: initialCells,
-      ));
-
-      startTimer();
-    } catch (e) {
-      emit(state.copyWith(error: 'Ошибка при генерации судоку: $e'));
+      // Логика для обработки выигрыша
+      emit(state.copyWith(isComplete: true));
     }
   }
 }

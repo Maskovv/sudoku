@@ -4,6 +4,7 @@ import '../repositories/profile_repository.dart';
 import '../models/user_profile.dart';
 import 'auth_state.dart';
 import '../repositories/auth_repository.dart';
+import 'package:go_router/go_router.dart';
 
 class AuthCubit extends Cubit<AuthState> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -56,9 +57,9 @@ class AuthCubit extends Cubit<AuthState> {
         default:
           errorMessage = 'Произошла ошибка при входе: ${e.message}';
       }
-      emit(state.copyWith(error: errorMessage));
+      emit(state.copyWith(error: errorMessage, isLoading: false));
     } catch (e) {
-      emit(state.copyWith(error: e.toString()));
+      emit(state.copyWith(error: e.toString(), isLoading: false));
     }
   }
 
@@ -88,6 +89,7 @@ class AuthCubit extends Cubit<AuthState> {
           status: AuthStatus.authenticated,
           userId: userCredential.user!.uid,
         ));
+
       }
     } on FirebaseAuthException catch (e) {
       print('Firebase Auth Error: ${e.code} - ${e.message}');

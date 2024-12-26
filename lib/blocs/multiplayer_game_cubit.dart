@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../repositories/multiplayer_repository.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class MultiplayerGameState {
   final String gameId;
@@ -31,8 +32,6 @@ class MultiplayerGameState {
     solvedGrid = solvedGrid ?? List.generate(9, (_) => List.filled(9, 0)),
     initialCells = initialCells ?? List.generate(9, (_) => List.filled(9, false)),
     mistakes = mistakes ?? {};
-
-  bool get isWinner => winner == FirebaseAuth.instance.currentUser?.uid;
 
   MultiplayerGameState copyWith({
     String? gameId,
@@ -81,34 +80,12 @@ class MultiplayerGameCubit extends Cubit<MultiplayerGameState> {
     _gameSubscription = _repository.watchGame(state.gameId).listen(
       (gameSnapshot) {
         final gameData = gameSnapshot.data() as Map<String, dynamic>?;
-        if (gameData != null) {
-          final currentGrid = List<List<int>>.from(
-            (gameData['currentGrid'] as List).map(
-              (row) => List<int>.from(row),
-            ),
-          );
-          final solvedGrid = List<List<int>>.from(
-            (gameData['solvedGrid'] as List).map(
-              (row) => List<int>.from(row),
-            ),
-          );
-          final puzzle = List<List<int>>.from(
-            (gameData['puzzle'] as List).map(
-              (row) => List<int>.from(row),
-            ),
-          );
-          final initialCells = List<List<bool>>.generate(
-            9,
-            (i) => List<bool>.generate(
-              9,
-              (j) => puzzle[i][j] != 0,
-            ),
-          );
 
+        if (gameData != null) {
           emit(state.copyWith(
-            currentGrid: currentGrid,
-            solvedGrid: solvedGrid,
-            initialCells: initialCells,
+            currentGrid: gameData['currentGrid'] as List<List<int>>,
+            solvedGrid: gameData['solvedGrid'] as List<List<int>>,
+            initialCells: gameData['initialCells'] as List<List<bool>>,
             currentTurn: gameData['currentTurn'] as String?,
             isGameStarted: gameData['status'] == 'playing',
             isGameFinished: gameData['status'] == 'finished',
@@ -137,8 +114,9 @@ class MultiplayerGameCubit extends Cubit<MultiplayerGameState> {
     try {
       await _repository.leaveGame(state.gameId);
       _gameSubscription?.cancel();
+      emit(MultiplayerGameState(gameId: '')); // Сбрасываем состояние игры
     } catch (e) {
       emit(state.copyWith(error: e.toString()));
     }
   }
-} 
+}

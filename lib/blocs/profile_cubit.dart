@@ -19,20 +19,17 @@ class ProfileCubit extends Cubit<ProfileState> {
   final ProfileRepository _profileRepository;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  ProfileCubit(this._profileRepository) : super(ProfileState()) {
-    _auth.authStateChanges().listen((user) {
-      if (user != null) {
-        loadProfile(user.uid);
-      }
-    });
-  }
+  ProfileCubit(this._profileRepository) : super(ProfileState());
 
   Future<void> loadProfile(String uid) async {
     emit(ProfileState(isLoading: true));
     try {
+      print('ProfileCubit: Loading profile for uid: $uid');
       final profile = await _profileRepository.getProfile(uid);
+      print('ProfileCubit: Loaded profile: $profile');
       emit(ProfileState(profile: profile));
     } catch (e) {
+      print('ProfileCubit: Error loading profile: $e');
       emit(ProfileState(error: e.toString()));
     }
   }

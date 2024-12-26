@@ -20,13 +20,13 @@ class App extends StatelessWidget {
           create: (context) => AuthCubit(ProfileRepository()),
         ),
         BlocProvider(
-          create: (context) => MultiplayerCubit(MultiplayerRepository()),
+          create: (context) => MultiplayerCubit(MultiplayerRepository(SudokuRepository())),
         ),
         BlocProvider(
           create: (context) => SudokuCubit(
-            SudokuRepository(),
-            ProfileRepository(),
-          ),
+          SudokuRepository(),
+          ProfileRepository(),
+        ),
         ),
         BlocProvider(
           create: (context) => ProfileCubit(ProfileRepository()),

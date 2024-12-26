@@ -9,11 +9,13 @@ class ProfileRepository {
   Future<void> createProfile(String uid, String email, String username) async {
     try {
       print('Creating profile for user: $uid');
-      await _firestore.collection('users').doc(uid).set({
+      await _firestore.collection('profiles').doc(uid).set({
+        'uid': uid,
         'email': email,
-        'username': username,
-        'gamesPlayed': 0,
-        'gamesWon': 0,
+        'nickname': username,
+        'totalGames': 0,
+        'wins': 0,
+        'losses': 0,
         'createdAt': FieldValue.serverTimestamp(),
       });
       print('Profile created successfully');
@@ -25,17 +27,23 @@ class ProfileRepository {
 
   Future<UserProfile?> getProfile(String uid) async {
     try {
+      print('ProfileRepository: Getting profile for uid: $uid');
       final doc = await _firestore.collection('profiles').doc(uid).get();
-      print('Getting profile for uid: $uid'); 
-      print('Document exists: ${doc.exists}'); 
+      print('ProfileRepository: Document exists: ${doc.exists}');
+      print('ProfileRepository: Document data: ${doc.data()}');
+      
       if (doc.exists) {
-        print('Document data: ${doc.data()}');
-        return UserProfile.fromMap(doc.data()!);
+        final profile = UserProfile.fromMap({
+          ...doc.data()!,
+          'uid': uid,
+        });
+        print('ProfileRepository: Created profile object: $profile');
+        return profile;
       }
       return null;
     } catch (e) {
-      print('Error getting profile: $e');
-      throw Exception('Failed to get profile: $e');
+      print('ProfileRepository: Error getting profile: $e');
+      throw e;
     }
   }
 
@@ -76,28 +84,61 @@ class ProfileRepository {
   }) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
+      if (user == null && uid == null) {
         print('Пользователь не авторизован');
         return;
       }
 
-      final userDoc = _firestore.collection('profiles').doc(uid ?? user.uid);
-      final userData = await userDoc.get();
-      print('Обновляем статистику для пользователя: ${uid ?? user.uid}');
+      final userDoc = _firestore.collection('profiles').doc(uid ?? user!.uid);
+      
+      // Используем транзакцию для атомарного обновления
+      await _firestore.runTransaction((transaction) async {
+        final snapshot = await transaction.get(userDoc);
+        if (!snapshot.exists) {
+          throw Exception('Профиль не найден');
+        }
 
-      if (userData.exists) {
-        await userDoc.update({
-          'totalGames': FieldValue.increment(1),
-          'wins': FieldValue.increment(isWin ? 1 : 0),
-          'losses': FieldValue.increment(isWin ? 0 : 1),
+        final currentData = snapshot.data()!;
+        final totalGames = (currentData['totalGames'] ?? 0) + 1;
+        final wins = (currentData['wins'] ?? 0) + (isWin ? 1 : 0);
+        final losses = (currentData['losses'] ?? 0) + (isWin ? 0 : 1);
+
+        transaction.update(userDoc, {
+          'totalGames': totalGames,
+          'wins': wins,
+          'losses': losses,
         });
-        print('Статистика успешно обновлена');
-      } else {
-        print('Профиль пользователя не найден');
-      }
+      });
+
+      print('Статистика успешно обновлена: победа=$isWin, uid=${uid ?? user!.uid}');
     } catch (e) {
       print('Ошибка при обновлении статистики: $e');
       throw e;
+    }
+  }
+
+  Future<void> updateProfile(String userId, {int wins = 0, int losses = 0}) async {
+    print("Обновление профиля для пользователя: $userId, Победы: $wins, Поражения: $losses");
+    final userRef = _firestore.collection('profiles').doc(userId);
+
+    // Получаем текущие данные пользователя
+    final userDoc = await userRef.get();
+    if (userDoc.exists) {
+      final data = userDoc.data() ?? {};
+      final currentWins = data['wins'] ?? 0;
+      final currentLosses = data['losses'] ?? 0;
+
+      // Обновляем данные
+      await userRef.update({
+        'wins': currentWins + wins,
+        'losses': currentLosses + losses,
+      });
+    } else {
+      // Если документа нет, создаем новый
+      await userRef.set({
+        'wins': wins,
+        'losses': losses,
+      });
     }
   }
 } 
