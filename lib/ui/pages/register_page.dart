@@ -23,7 +23,7 @@ class RegisterPage extends StatelessWidget {
             );
           }
           if (state.status == AuthStatus.authenticated) {
-            context.go('/sudoku');
+            context.go('/home');
           }
         },
         builder: (context, state) {

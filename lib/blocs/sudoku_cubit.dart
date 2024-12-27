@@ -11,6 +11,7 @@ class SudokuState {
   final int mistakes;
   final Duration timeElapsed;
   final bool isComplete;
+  final bool isGameOver;
   final String? error;
 
   SudokuState({
@@ -21,6 +22,7 @@ class SudokuState {
     this.mistakes = 0,
     this.timeElapsed = Duration.zero,
     this.isComplete = false,
+    this.isGameOver = false,
     this.error,
   }) : cellStates = cellStates ?? List.generate(
          9,
@@ -34,6 +36,7 @@ class SudokuState {
     int? mistakes,
     Duration? timeElapsed,
     bool? isComplete,
+    bool? isGameOver,
     String? error,
   }) {
     return SudokuState(
@@ -44,6 +47,7 @@ class SudokuState {
       mistakes: mistakes ?? this.mistakes,
       timeElapsed: timeElapsed ?? this.timeElapsed,
       isComplete: isComplete ?? this.isComplete,
+      isGameOver: isGameOver ?? this.isGameOver,
       error: error,
     );
   }
@@ -74,6 +78,7 @@ class SudokuCubit extends Cubit<SudokuState> {
   }
 
   void startTimer() {
+    _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       emit(state.copyWith(timeElapsed: Duration(seconds: timer.tick)));
     });
@@ -117,6 +122,23 @@ class SudokuCubit extends Cubit<SudokuState> {
     startTimer();
   }
 
+  void resetGame() {
+    _timer?.cancel();
+    emit(SudokuState(
+      currentGrid: List.generate(9, (_) => List.filled(9, 0)),
+      solvedGrid: List.generate(9, (_) => List.filled(9, 0)),
+      initialCells: List.generate(9, (_) => List.filled(9, false)),
+      timeElapsed: Duration.zero,
+      isComplete: false,
+      mistakes: 0
+    ));
+  }
+
+  void restartGame(int difficulty) {
+    resetGame();
+    startGame(difficulty);
+  }
+
   void checkForWin(List<List<int>> grid) {
     bool isComplete = true;
     for (int i = 0; i < 9; i++) {
@@ -129,9 +151,20 @@ class SudokuCubit extends Cubit<SudokuState> {
       if (!isComplete) break;
     }
 
-    if (isComplete) {
-      // Логика для обработки выигрыша
-      emit(state.copyWith(isComplete: true));
+    if (isComplete || state.mistakes >= 3) {
+      stopTimer();
+      // Добавляем обновле��ие статистики
+      _profileRepository.updateStats(
+        isWin: isComplete && state.mistakes < 3,
+      );
+      emit(state.copyWith(
+        isComplete: isComplete,
+        isGameOver: true
+      ));
     }
+  }
+
+  void finishGame() {
+    _timer?.cancel();
   }
 }

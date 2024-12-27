@@ -9,6 +9,7 @@ import '../ui/pages/multiplayer_game_page.dart';
 import '../ui/pages/login_page.dart';
 import '../ui/pages/register_page.dart';
 import '../ui/game_screen.dart';
+import '../ui/pages/leaderboard_page.dart';
 
 final router = GoRouter(
   initialLocation: '/',
@@ -55,6 +56,10 @@ final router = GoRouter(
           builder: (context, state) => MultiplayerGamePage(
             gameId: state.pathParameters['gameId']!,
           ),
+        ),
+        GoRoute(
+          path: '/leaderboard',
+          builder: (context, state) => const LeaderboardPage(),
         ),
       ],
     ),

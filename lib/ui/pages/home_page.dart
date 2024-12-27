@@ -29,6 +29,14 @@ class HomePage extends StatelessWidget {
               onPressed: () => context.go('/multiplayer-search'),
               child: const Text('Сетевая игра'),
             ),
+            const SizedBox(height: 32),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple[100],
+              ),
+              onPressed: () => context.go('/leaderboard'),
+              child: const Text('Таблица лидеров'),
+            ),
           ],
         ),
       ),

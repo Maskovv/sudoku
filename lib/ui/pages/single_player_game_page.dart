@@ -14,15 +14,33 @@ class SinglePlayerGamePage extends StatefulWidget {
 class _SinglePlayerGamePageState extends State<SinglePlayerGamePage> {
   int? selectedRow;
   int? selectedCol;
+  Timer? _timer;
+  int _timeElapsed = 0;
+  bool _showingDialog = false;
 
   @override
   void initState() {
     super.initState();
+    _startTimer();
+  }
+
+  void _startTimer() {
+    _timer?.cancel();
+    _timer = Timer.periodic(Duration(seconds: 1), (timer) {
+      setState(() {
+        _timeElapsed++;
+      });
+    });
   }
 
   @override
   void dispose() {
+    _timer?.cancel();
     super.dispose();
+  }
+
+  void _stopTimer() {
+    _timer?.cancel();
   }
 
   @override
@@ -53,6 +71,56 @@ class _SinglePlayerGamePageState extends State<SinglePlayerGamePage> {
     }
   }
 
+  void _showEndGameDialog(BuildContext context, SudokuState state) {
+    if (_showingDialog) return;
+    _showingDialog = true;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Text(
+          state.isComplete ? 'Поздравляем!' : 'Вы проиграли!',
+          style: TextStyle(
+            color: state.isComplete ? Colors.green : Colors.red,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(state.isComplete 
+              ? 'Вы решили судоку за ${state.timeElapsed.inMinutes} мин ${state.timeElapsed.inSeconds % 60} сек!'
+              : 'Совершено 3 ошибки'),
+            if (!state.isComplete) const SizedBox(height: 8),
+            if (!state.isComplete) Text(
+              'Время игры: ${state.timeElapsed.inMinutes} мин ${state.timeElapsed.inSeconds % 60} сек',
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _showingDialog = false;
+              context.read<SudokuCubit>().stopTimer();
+              context.go('/home');
+            },
+            child: const Text('На главную'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _showingDialog = false;
+              context.read<SudokuCubit>().restartGame(1);
+            },
+            child: const Text('Новая игра'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -60,78 +128,17 @@ class _SinglePlayerGamePageState extends State<SinglePlayerGamePage> {
         title: const Text('Одиночная игра'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/home'),
+          onPressed: () {
+            _stopTimer();
+            context.go('/home');
+          },
         ),
       ),
       body: BlocConsumer<SudokuCubit, SudokuState>(
         listener: (context, state) {
-          if (state.isComplete) {
-            showDialog(
-              context: context,
-              barrierDismissible: false,
-              builder: (context) => AlertDialog(
-                title: const Text(
-                  'Поздравляем!',
-                  style: TextStyle(
-                    color: Colors.green,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                content: Text(
-                  'Вы решили судоку за ${state.timeElapsed.inMinutes} мин ${state.timeElapsed.inSeconds % 60} сек!',
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => context.go('/home'),
-                    child: const Text('На главную'),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      context.read<SudokuCubit>().startGame(1);
-                      Navigator.pop(context);
-                    },
-                    child: const Text('Новая игра'),
-                  ),
-                ],
-              ),
-            );
-          } else if (state.mistakes >= 3) {
-            showDialog(
-              context: context,
-              barrierDismissible: false,
-              builder: (context) => AlertDialog(
-                title: const Text(
-                  'Вы проиграли!',
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('Совершено 3 ошибки'),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Время игры: ${state.timeElapsed.inMinutes} мин ${state.timeElapsed.inSeconds % 60} сек',
-                    ),
-                  ],
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => context.go('/home'),
-                    child: const Text('На главную'),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      context.read<SudokuCubit>().startGame(1);
-                      Navigator.pop(context);
-                    },
-                    child: const Text('Новая игра'),
-                  ),
-                ],
-              ),
-            );
+          if ((state.isComplete || state.mistakes >= 3) && !_showingDialog) {
+            context.read<SudokuCubit>().stopTimer();
+            _showEndGameDialog(context, state);
           }
         },
         builder: (context, state) {
